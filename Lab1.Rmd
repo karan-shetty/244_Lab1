@@ -1,0 +1,97 @@
+---
+title: "Lab 1"
+author: "Karan Shetty"
+date: "January 9, 2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+knitr::opts_chunk$set(echo=TRUE)
+library(tidyverse)
+library(here)
+library(janitor)
+library(kableExtra)
+
+```
+
+Read in noaa fisheries data
+
+```{r}
+us_landings = read_csv(here("data", "noaa_fisheries.csv"))
+
+## Now make a tidy version of the data frame
+
+landings_tidy = us_landings %>% 
+  clean_names() %>% # from janitor package, makes columns coder-friendly
+  mutate(state = str_to_lower(state)) %>% # changes state names to lower case
+  mutate(afs_name = str_to_lower(afs_name)) %>% # changes afs_name results to lower case
+  mutate(dollars_num = parse_number(dollars_usd)) # gets rid of dollar signs
+
+
+```
+
+Let's get some information for salmon:
+
+```{r}
+salmon_landings = landings_tidy %>% 
+  mutate(afs_clean = str_remove(afs_name, pattern = "aggregate")) %>% # removes "aggregate"
+  filter(str_detect(afs_clean, pattern = "salmon")) %>% # filters only for salmon results in column afs_clean
+  separate(afs_clean, into = c("group", "species"), sep = ",") # separates salmon results in afs_clean into two columns. First is group (salmon), second is species (e.g chinook). The separator R looks for is ","
+
+```
+
+Find some grouped summary data:
+
+Find the annual total US landings and dollar value (summing across all states) for each TYPE of salmon using `group_by()` + `summarize()`
+
+```{r}
+salmon_summary = salmon_landings %>% 
+  group_by(year, species) %>% 
+  summarize(
+    tot_landings = sum(landings_pounds),
+    tot_value = sum(dollars_num)
+  )
+
+```
+
+Make a graph!
+
+```{r}
+salmon_landings_graph = ggplot(data = salmon_summary, aes(x = year, y = tot_landings))+
+  geom_line(aes(color = species))+
+  labs(x = "Year", y = "Total Landings", title = "Total Salmon Landings by Species")+
+  theme_minimal()
+
+salmon_landings_graph
+
+```
+Now we will export our graph with ggsave:
+
+```{r}
+ggsave(plot = salmon_landings_graph, # saves salmon_landings_graph as a separate image
+       here("figures", "us_salmon_ks.png"), # saves it to the figures folder as "us_salmon_ks" as a png file
+       height = 5, # changes the default image height
+       width = 8) # changes the default image width
+
+```
+
+Make a nice kable table
+```{r}
+salmon_first_5 = salmon_summary %>% 
+  head(5) # first five rows of salmon_summary
+
+# Use kable
+
+kable(salmon_first_5) %>% 
+  kable_styling(boostrap_options = "striped", full_width = FALSE)
+
+
+```
+
+
+
+
